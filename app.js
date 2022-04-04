@@ -1,16 +1,26 @@
 const express = require('express');
-const cookieParser = require('cookie-parser'); // for parsing cookies
+// const cookieParser = require('cookie-parser'); // for parsing cookies
+const session = require('express-session');
+const store = new session.MemoryStore();
 const app = express();
 
-app.use(cookieParser());
+// app.use(cookieParser());
 // enable urlencoded request bodies
 app.use(express.urlencoded({extended: false}));
 // enable json middle ware
 app.use(express.json());
+// register session middleware
+app.use(session({
+    secret: "some secret",
+    cookie: {maxAge: 30000},
+    saveUninitialized: true, // set to false if you have a login 
+    store: store
+}))
 
 // register middleware
 // the next function tells express what middleware to invoke next
 app.use((req, res, next) => {
+    console.log(store);
     console.log(`${req.method} - ${req.url}`);
     next();
 });
@@ -113,7 +123,37 @@ app.get('/signin', (req, res) => {
 });
 
 app.get('/protected', validateCookie, (req, res) => {
-    res.status(200).json({msg: 'You are Authorized'});
+    res.status(200).json({ msg: "You are authorized!"})
+});
+    
+app.post('/login', (req, res) => {
+    const {username, password } = req.body;
+    console.log(req.sessionID);
+    if(username && password)
+    {
+        if(req.session.authenticated)
+        {
+            res.json(req.session);
+        }
+        else
+        {
+            if(password === '123')
+            {
+                // in real application we would hash and compare to hashed pws in db
+                req.session.authenticated = true;
+                req.session.user = (
+                    username, password
+                );
+                res.json(req.session);
+            }
+            else
+            {
+                res.status(403).json({ msg: "Bad credentials"});
+            }
+        }
+    }
+    else
+        res.status(403).json({msg: 'Bad credentials'})
 });
 
 app.listen(3000, () => {
